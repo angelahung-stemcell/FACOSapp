@@ -11,7 +11,9 @@ suppressMessages(library(ggrepel))
 suppressMessages(library(dplyr))
 suppressMessages(library(shiny))
 suppressMessages(library(shinyWidgets))
+suppressMessages(library(rmarkdown))
 
+# Sourced Files
 source("sunburst.R")
 source('functions.R')
 

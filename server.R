@@ -10,9 +10,11 @@ shinyServer <- function(input, output, session)
                         g = NULL, 
                         gtable = NULL, 
                         plots = NULL, 
-                        gtemp = NULL)
+                        gtemp = NULL, 
+                        fileName = NULL)
   
   observeEvent(input$fileSelectFCS, {
+    print('hiFCS')
     output$selectPlots <- renderUI({
       ids <- input$fileSelectFCS$name
       selectInput(inputId="fileSelector",
@@ -29,6 +31,7 @@ shinyServer <- function(input, output, session)
         # TODO: naming is weird why always V1
         f <- read.flowSet(files=dataPath, pattern="*.fcs")
         sampleNames(f) <- inputFiles$name[idx]
+        fcs$fileName <- inputFiles$name[idx]
         f
       },error = function(e){
         print('Failed to read in FCS files')
@@ -39,22 +42,38 @@ shinyServer <- function(input, output, session)
   })# END OF fileSelect
 
     observeEvent(input$runGating, {
-      x <- capture.output(
-        fcs$ff <- tryCatch({ flowSet(flowAI::flow_auto_qc(fcs$ff,
-                                                          remove_from = 'all',
-                                                          ChExcludeFS = c("SSC", "FSC", "Time"), output = 1,
-                                                          mini_report = FALSE,
-                                                          html_report = FALSE,
-                                                          fcs_QC = FALSE))
-        }, error = function(e){
-          print('Failed to run QC')
-          return(e)
-        })
-      )
-
-      # Character list output from flowAI
-      fcs$QC <- x
-
+      if('1' %in% input$groupCheck1 & '2' %in% input$groupCheck1){
+        x <- capture.output(
+          fcs$ff <- tryCatch({ flowSet(flowAI::flow_auto_qc(fcs$ff,
+                                                            remove_from = 'all',
+                                                            ChExcludeFS = c("SSC", "FSC", "Time"), output = 1,
+                                                            mini_report = FALSE,
+                                                            html_report = FALSE,
+                                                            fcs_QC = FALSE))
+          }, error = function(e){
+            print('Failed to run QC')
+            return(e)
+          })
+        )
+        # Character list output from flowAI
+        fcs$QC <- x
+      } else if('1' %in% input$groupCheck1 & !('2' %in% input$groupCheck1)){
+        x <- capture.output(
+          tryCatch({ flowSet(flowAI::flow_auto_qc(fcs$ff,
+                                                  remove_from = 'all',
+                                                  ChExcludeFS = c("SSC", "FSC", "Time"), output = 1,
+                                                  mini_report = FALSE,
+                                                  html_report = FALSE,
+                                                  fcs_QC = FALSE))
+          }, error = function(e){
+            print('Failed to run QC')
+            return(e)
+          })
+        )
+        # Character list output from flowAI
+        fcs$QC <- x
+      }
+      
      tryCatch({
        fcs$g <- gatingTemplate(input$gatingHierarchy$datapath)
        fcs$gtable <- fread(input$gatingHierarchy$datapath)
@@ -98,6 +117,20 @@ shinyServer <- function(input, output, session)
         })
       }
       
+      if('3' %in% input$groupCheck2){
+        # TCELLPANEL
+        # Hide nodes (gets rid of intermediate steps/gates when graphing)
+        hideNodes <- c('CD4+',
+                       'CD8a+',
+                       'CD4+CD8a+',
+                       'CD4-CD8a-',
+                       'CD4+CD8a-/CCR7+',
+                       'CD4+CD8a-/CD45RA+',
+                       'CD4-CD8a+/CCR7+',
+                       'CD4-CD8a+/CD45RA+')
+        lapply(hideNodes, function(thisNode)setNode(gt, thisNode, FALSE))
+      }
+      
       fcs$plots <- tryCatch({
         # Get part of the gating template for plotting & nodes
         plotdata <- fcs$gtable[,c('alias', 'parent', 'dims')]
@@ -114,9 +147,8 @@ shinyServer <- function(input, output, session)
         print('Failed to make gating plots')
         return(e)
       })
-
-      print('end')
       
+      # SHINY OUTPUTS
       output$downloadPlotBttn <- renderUI(downloadButton("downloadPlots", "Download Gating Plots"))
       
       output$downloadPlots <- downloadHandler(
@@ -146,23 +178,49 @@ shinyServer <- function(input, output, session)
       output$populationTable <- DT::renderDataTable({
        DT::datatable(getPopStats(fcs$gt)) 
       },options = list(pageLength = 25))
-
-      observeEvent(input$gatingtempfile, {
-        print('hi')
-        fcs$gtemp <- gatingTemplate(input$gatingtemptest$datapath)
-        save(fcs$gtemp, file = 'gtemp.rda')
-        })
       
-      observeEvent(input$gatingTemp,{
-        print('hi')
-        output$gttestplot <- renderPlot({
-          openCyto::plot(fcs$gtemp)
-        }, height = 500)
-        fcs$gtemp
-        openCyto::plot(fcs$gtemp)
+      # Results Summary
+      output$populationTableSummary <- DT::renderDataTable({
+        dt <- getPopStats(fcs$gt)
+        dt$name <-fcs$fileName
+        DT::datatable(dt, rownames = FALSE) 
+      },options = list(pageLength = 25))
+      
+      output$QCreport <- renderUI({
+        HTML(paste(fcs$QC, collapse ="<br/>"))
       })
-
-    
       
-    })# END OF runGating
-  }
+      output$multiplotSummary <- renderPlot({
+        rows <- ceiling(length(fcs$plots)/3)
+        # Render plot 
+          grid.arrange(grobs = fcs$plots, nrow= rows)
+      }, height = 1000)
+      
+      output$sunburstSummary <- renderPlot({
+        sb
+      }, height = 1000)
+      
+      # output$downloadSummary <- downloadHandler (
+      #   
+      # )# END OF summaryDownload
+    
+      })# END OF runGating
+    
+    
+    observeEvent(input$gatingtempfile, {
+      fcs$gtemp <- gatingTemplate(input$gatingtempfile$datapath)
+    })
+    
+    observeEvent(input$gatingTempBttn,{
+      output$gttestplot <- renderPlot({
+        openCyto::plot(fcs$gtemp)
+      }, height = 600, width = 1300)
+      
+      output$hideNodes <- awesomeCheckboxGroup(inputId = 'hideNodesCheckbox', 
+                                               label = 'Select nodes to hide',
+                                               choices = getNodes(fcs$gtemp))
+    })
+    
+    
+    
+}# END OF SHINY SERVER
