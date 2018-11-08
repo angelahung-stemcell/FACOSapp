@@ -44,7 +44,7 @@ shinyServer <- function(input, output, session)
                  value = 0, 
                  {
                    # Number of events for withProgress incrementation
-                   n <- 11
+                   n <- 10
                    sampleNames(fcs$ff) <- fcs$fileName
                    
                    if('1' %in% input$groupCheck1 & '2' %in% input$groupCheck1){
@@ -196,8 +196,7 @@ shinyServer <- function(input, output, session)
                    })
                    
                    incProgress(amount = 1/n, detail = 'Making tSNE Plot')
-                   fcs$tsne <- tSNEplot(fcs$gs)
-                   
+
                    # SHINY OUTPUTS
                    output$downloadPlotBttn <- renderUI(downloadButton("downloadPlots", "Download Gating Plots"))
                    
@@ -227,8 +226,6 @@ shinyServer <- function(input, output, session)
                        ggsave(sb, file = file, height = 11, width = 8)
                      })
                    
-                   output$tSNEplot <- renderPlot(fcs$tsne)
-
                    incProgress(amount = 1/n, detail = 'Generating Population Table')
                    # fcs$popTable for population table and results summary
                    dt <- getPopStats(fcs$gs)
@@ -265,32 +262,44 @@ shinyServer <- function(input, output, session)
                    }, height = 1000)
                    
                   
-                 })# END OF withProgress 
-  })# END OF runGating
-  
-  output$downloadSummary <- downloadHandler (
-    filename=function(){paste('STEMCELL_FACS_report_',
-                              Sys.Date(),
-                              input$sumTabType,
-                              sep='')},
-    content=function(file) {
-      # if(input$sumFile == 'This file' && input$sumTabType == '.html'){
+                 })# END OF withProgress
+    
+    output$downloadSummary <- downloadHandler (
+      filename=function(){paste('STEMCELL_FACS_report_',
+                                Sys.Date(),
+                                input$sumTabType,
+                                sep='')},
+      content=function(file) {
+        # if(input$sumFile == 'This file' && input$sumTabType == '.html'){
         params <- list(QC = fcs$QC, 
                        popTable = fcs$popTable,
                        nodes = getNodes(fcs$gs),
                        plots = fcs$plots)
         
         # withProgress({
-          rmarkdown::render('html-report.rmd', 
-                            output_format = 'all',
-                            output_file = file,
-                            params=params,
-                            quiet=TRUE,
-                            envir=new.env(parent = globalenv()))
+        rmarkdown::render('html-report.rmd', 
+                          output_format = 'all',
+                          output_file = file,
+                          params=params,
+                          quiet=TRUE,
+                          envir=new.env(parent = globalenv()))
         # }, message = 'Compiling Report')   
-      # }
-    }
-  )# END OF summaryDownload
+        # }
+      }
+    )# END OF summaryDownload
+  })# END OF runGating
+  
+  observeEvent(input$runTSNE, {
+    withProgress({
+    fcs$tsne <- tSNEplot(fcs$gs, subsample = input$subsetProportion,
+                         perplexity = input$tsne_perplex, 
+                         iterations = input$tsne_iter)
+    }, message = 'Generating tSNE plot')
+    
+    output$tSNEplot <- renderPlot(fcs$tsne)
+    
+  })
+ 
   
   observeEvent(input$gatingtempfile, {
     gtemp <- gatingTemplate(input$gatingtempfile$datapath)

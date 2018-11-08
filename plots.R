@@ -147,7 +147,7 @@ sunburst_static <- function(popStats, nodes){
           plot.title = element_text(hjust = 0.5))
 }
 
-tSNEplot <- function(gt){
+tSNEplot <- function(gt, subsample, perplexity, iterations){
   nodes <- getNodes(gt)[2:length(nodes)]
 
   pops <- lapply(1:length(nodes), function(x){
@@ -166,10 +166,14 @@ tSNEplot <- function(gt){
     exp$Population[pop_idx] <- rep(names(pops[i]), length(pop_idx))
   }
 
-  indx <- caret::createDataPartition(exp$Population, p = 0.1)
+  indx <- caret::createDataPartition(exp$Population, p = subsample)
   exp <- exp[unlist(indx),]
   
-  tsne <-Rtsne(as.matrix(exp[,1:15]), max_iter = 1000, verbose = TRUE, perplexity = 40)$Y
+  #TODO: not population
+  tsne <-Rtsne(as.matrix(select(exp, -'Population')), 
+               max_iter = iterations, 
+               verbose = TRUE, 
+               perplexity = perplexity)$Y
   tsne <- data.frame(tsne)
   tsne$Population <- as.factor(exp$Population)
   
