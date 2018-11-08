@@ -1,0 +1,8 @@
+alias,pop,parent,dims,gating_method,gating_args,collapseDataForGating,groupBy,preprocessing_method,preprocessing_args
+nonDebris,+,root,"FSC-A,SSC-A",flowClust,K=1,NA,,,NA
+singlets,+,nonDebris,"SSC-A,SSC-H",singletGate,,NA,,,NA
+viable,-,singlets,7AAD,mindensity2,min = 0,NA,,,NA
+FSCACD3,+,viable ,"FSC-A,CD3",flowClust,K=1,NA,,,NA
+*,-/++/-,FSCACD3,"CD4,CD8a",flowClust,K=2,NA,,,NA
+*,-/++/-,CD4-CD8a+,"CCR7,CD45RA",mindensity2,min = 0,NA,,,NA
+*,-/++/-,CD4+CD8a-,"CCR7,CD45RA",mindensity2,min = 0,NA,,,NA

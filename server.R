@@ -6,15 +6,14 @@ shinyServer <- function(input, output, session)
   fcs <- reactiveValues(ff = NULL, 
                         QC = NULL, 
                         gs = NULL, 
-                        gt = NULL, 
                         g = NULL, 
                         gtable = NULL, 
                         plots = NULL, 
                         gtemp = NULL, 
+                        popTable = NULL,
                         fileName = NULL)
   
   observeEvent(input$fileSelectFCS, {
-    print('hiFCS')
     output$selectPlots <- renderUI({
       ids <- input$fileSelectFCS$name
       selectInput(inputId="fileSelector",
@@ -30,7 +29,6 @@ shinyServer <- function(input, output, session)
         
         # TODO: naming is weird why always V1
         f <- read.flowSet(files=dataPath, pattern="*.fcs")
-        sampleNames(f) <- inputFiles$name[idx]
         fcs$fileName <- inputFiles$name[idx]
         f
       },error = function(e){
@@ -41,10 +39,14 @@ shinyServer <- function(input, output, session)
     
   })# END OF fileSelect
 
+  
     observeEvent(input$runGating, {
+      sampleNames(fcs$ff) <- fcs$fileName
+      
       if('1' %in% input$groupCheck1 & '2' %in% input$groupCheck1){
+        
         x <- capture.output(
-          fcs$ff <- tryCatch({ flowSet(flowAI::flow_auto_qc(fcs$ff,
+          fcs$ff <- tryCatch({ flowSet(flowAI::flow_auto_qc(fcs$ff[[1]],
                                                             remove_from = 'all',
                                                             ChExcludeFS = c("SSC", "FSC", "Time"), output = 1,
                                                             mini_report = FALSE,
@@ -74,14 +76,49 @@ shinyServer <- function(input, output, session)
         fcs$QC <- x
       }
       
-     tryCatch({
-       fcs$g <- gatingTemplate(input$gatingHierarchy$datapath)
-       fcs$gtable <- fread(input$gatingHierarchy$datapath)
-      }, error = function(e){
-        print('Failed to make gating template')
-        return(e)
-      })
+      # Makes sure file name is in QC instead of index in flowset
+      fcs$QC[[1]] <- paste("Quality control for the file:", fcs$fileName, sep = ' ')
       
+      
+      # Load preset gating templates (tcell, msc, dave)
+      if('1' %in% input$panelType){
+        tryCatch({
+          fcs$g <- gatingTemplate('TcellPanel1.csv')
+          fcs$gtable <- fread('TcellPanel1.csv')
+        }, error = function(e){
+          print('Failed for TCellPanel1 gating template')
+          return(e)
+        })
+      }
+      else if('2' %in% input$panelType){
+        tryCatch({
+          fcs$g <- gatingTemplate('MSCPanel.csv')
+          fcs$gtable <- fread('MSCPanel.csv')
+        }, error = function(e){
+          print('Failed for MSCPanel gating template')
+          return(e)
+        })
+      } else if('3' %in% input$panelType){
+        tryCatch({
+          fcs$g <- gatingTemplate('DavePanel.csv')
+          fcs$gtable <- fread('DavePanel.csv')
+        }, error = function(e){
+          print('Failed to make Luminal/Basal gating template')
+          return(e)
+        })
+      }
+      
+      # User uploaded gating template
+      observeEvent(input$gatingHierarchy, {
+        tryCatch({
+          fcs$g <- gatingTemplate(input$gatingHierarchy$datapath)
+          fcs$gtable <- fread(input$gatingHierarchy$datapath)
+        }, error = function(e){
+          print('Failed to make gating template')
+          return(e)
+        })
+      })
+     
       # Compensation
       fcs$ff <- apply_comp_existing(fcs$ff)
       
@@ -104,10 +141,10 @@ shinyServer <- function(input, output, session)
       while(catch){
         tryCatch({
           trans <- estimateLogicle(fcs$gs[[1]], chnls, m = m)
-          fcs$gt <- transform(fcs$gs, trans)
+          fcs$gs <- transform(fcs$gs, trans)
           
           tryCatch({
-            gating(fcs$g, fcs$gt)
+            gating(fcs$g, fcs$gs)
           }, error = function(e){
             print('Failed to gate on gating template')
           })
@@ -117,7 +154,7 @@ shinyServer <- function(input, output, session)
         })
       }
       
-      if('3' %in% input$groupCheck2){
+      if('1' %in% input$panelType){
         # TCELLPANEL
         # Hide nodes (gets rid of intermediate steps/gates when graphing)
         hideNodes <- c('CD4+',
@@ -128,15 +165,27 @@ shinyServer <- function(input, output, session)
                        'CD4+CD8a-/CD45RA+',
                        'CD4-CD8a+/CCR7+',
                        'CD4-CD8a+/CD45RA+')
+        lapply(hideNodes, function(thisNode)setNode(fcs$gs, thisNode, FALSE))
+      }
+      if('2' %in% input$panelType){
+        # MSC PANEL
+        # Hide nodes (gets rid of intermediate steps/gates when graphing)
+        hideNodes <- c('CD73+',
+                       'CD90+',
+                       'CD73+CD90-',
+                       'CD73-CD90+',
+                       'CD73-CD90-',
+                       'CD146+',
+                       'CD105+')
         lapply(hideNodes, function(thisNode)setNode(gt, thisNode, FALSE))
       }
       
       fcs$plots <- tryCatch({
         # Get part of the gating template for plotting & nodes
         plotdata <- fcs$gtable[,c('alias', 'parent', 'dims')]
-        nodes <- getNodes(fcs$gt)
+        nodes <- getNodes(fcs$gs)
         # Make list of plots using openCyto
-        plots <- plots(plotdata, fcs$gt, nodes)
+        plots <- plots(plotdata, fcs$gs, nodes)
         rows <- ceiling(length(plots)/3)
         # Render plot 
         output$multiplot <- renderPlot({
@@ -162,9 +211,10 @@ shinyServer <- function(input, output, session)
           ggsave(file = file, ag, width = 8, height = 11)
         })
       
-      output$sunburst <- renderD3partitionR(sunburstZoom(fcs$gt))
+      output$sunburst <- renderD3partitionR(sunburstZoom(fcs$gs))
       output$downloadSunburstBttn <- renderUI(downloadButton("downloadSunburst", "Download Sunburst Plot"))
-      sb <- sunburst_static(fcs$gt)
+      
+      sb <- sunburst_static(getPopStats(fcs$gs), getNodes(fcs$gs))
       output$downloadSunburst <- downloadHandler(
         filename = function() {
           f <- gsub(".fcs", "", input$plotSelector, ignore.case=TRUE)
@@ -175,17 +225,22 @@ shinyServer <- function(input, output, session)
           ggsave(sb, file = file, height = 11, width = 8)
         })
       
+      # fcs$popTable for population table and results summary
+      dt <- getPopStats(fcs$gs)
+      dt$name <-fcs$fileName
+      names(dt)[names(dt) == 'name'] <- 'File Name'
+      dt$Percent <- round((dt$Count/dt$ParentCount)*100,1)
+      fcs$popTable <- dt
+      
       output$populationTable <- DT::renderDataTable({
-       DT::datatable(getPopStats(fcs$gt)) 
-      },options = list(pageLength = 25))
+        fcs$popTable 
+      },options = list(pageLength = 10))
       
       # Results Summary
       output$populationTableSummary <- DT::renderDataTable({
-        dt <- getPopStats(fcs$gt)
-        dt$name <-fcs$fileName
-        DT::datatable(dt, rownames = FALSE) 
-      },options = list(pageLength = 25))
-      
+        fcs$popTable 
+      },options = list(pageLength = 10))
+        
       output$QCreport <- renderUI({
         HTML(paste(fcs$QC, collapse ="<br/>"))
       })
@@ -200,26 +255,40 @@ shinyServer <- function(input, output, session)
         sb
       }, height = 1000)
       
-      # output$downloadSummary <- downloadHandler (
-      #   
-      # )# END OF summaryDownload
-    
-      })# END OF runGating
-    
+      output$downloadSummary <- downloadHandler (
+        filename=function(){paste('STEMCELL_FACS_report_',
+                                  Sys.Date(),
+                                  input$sumTabType,
+                                  sep='')},
+        content=function(file) {
+          if(input$sumFile == 'This file' && input$sumTabType == '.html'){
+            params <- list(QC = fcs$QC, 
+                           popTable = fcs$popTable,
+                           nodes = getNodes(fcs$gs),
+                           plots = fcs$plots)
+            
+            rmarkdown::render('html-report.rmd', 
+                              output_format = 'all',
+                              output_file = file,
+                              params=params,
+                              quiet=TRUE,
+                              envir=new.env(parent = globalenv()))
+          }
+        }
+      )# END OF summaryDownload
+    })# END OF runGating
     
     observeEvent(input$gatingtempfile, {
-      fcs$gtemp <- gatingTemplate(input$gatingtempfile$datapath)
+      gtemp <- gatingTemplate(input$gatingtempfile$datapath)
+      
+      observeEvent(input$gatingTempBttn,{
+        output$gttestplot <- renderPlot({
+          openCyto::plot(gtemp)
+        }, height = 600, width = 1300)
+      })
     })
     
-    observeEvent(input$gatingTempBttn,{
-      output$gttestplot <- renderPlot({
-        openCyto::plot(fcs$gtemp)
-      }, height = 600, width = 1300)
-      
-      output$hideNodes <- awesomeCheckboxGroup(inputId = 'hideNodesCheckbox', 
-                                               label = 'Select nodes to hide',
-                                               choices = getNodes(fcs$gtemp))
-    })
+    
     
     
     

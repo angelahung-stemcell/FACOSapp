@@ -116,16 +116,16 @@ sunburstZoom <- function(gt){
 # TODO: repel text ----
 # TODO: scale_x_discrete limits (make gate level names)
 # TODO: Multiple sunbursts?/choice implementation
-sunburst_static <- function(gt){
-  ps <- as.data.table(getPopStats(gt))
+sunburst_static <- function(popStats, nodes){
+  ps <- popStats
   psplot <- ps[, c("Population", "Count", 'ParentCount')]
   psplot$percent <- round((psplot$Count/psplot$ParentCount)*100, 1)
-  psplot$nodes <- getNodes(gt)[2:length(getNodes(gt))]
+  psplot$nodes <- nodes[2:length(nodes)]
   psplot$gateNum <- lengths(gregexpr("/", psplot$nodes))
   psplot$pop_clean <- sapply(psplot$population, function(x) gsub("\\+|-", "", x))
   
   # Color palette
-  pp <- c(brewer.pal(9, 'Pastel1'), brewer.pal(7, 'Set2'))
+  pp <- c(brewer.pal(9, 'Pastel1'), brewer.pal(7, 'Set2'), brewer.pal(9, 'Pastel2'))
   pp <- pp[1:length(psplot$Population)]
   
   psplot %>% ggplot(aes(x = gateNum, y = Count, fill = Population))+

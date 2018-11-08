@@ -1,0 +1,7 @@
+alias,pop,parent,dims,gating_method,gating_args,collapseDataForGating,groupBy,preprocessing_method,preprocessing_args
+nonDebris,+,root,"FSC-A,SSC-A",flowClust,K=2,NA,,,NA
+singlets,+,nonDebris,"SSC-A,SSC-H",singletGate,,NA,,,NA
+viable,+,singlets,"FSC-A,DAPI",flowClust,K=1,NA,,,NA
+PENeg,+,viable,"FSC-A,PE",flowClust,K=1,NA,,,NA
+CD73+CD90+,+,PENeg,"CD73,CD90",flowClust,K=1,NA,,,NA
+CD146+CD105+,+,CD73+CD90+,"CD146,CD105",flowClust,K=1,NA,,,NA

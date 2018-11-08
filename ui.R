@@ -113,44 +113,44 @@ shinyUI <- fluidPage(
     
     tags$div(h1(tags$b("Flow Cytometry Analysis App"))),
     hr(),
-    # conditionalPanel(condition=paste('input.autoGate == "multiplot" || input.autoGate=="popTable"',
-    #                                  ' || input.autoGate=="sunburst" || input.autoGate=="tsnePlot"'),
-    #                  uiOutput("selectPlots")),
     uiOutput("selectPlots"),
     h2(tags$b("Step 1: Upload")),
     h3("Upload Sample Files"),
     fileInput(inputId="fileSelectFCS", label="Select FCS Files", 
               multiple = TRUE, accept = c(".fcs", ".FCS")),
     
-    conditionalPanel(condition=paste('input.autoGate == "multiplot" || input.autoGate=="popTable"',
-                                     ' || input.autoGate=="sunburst" || input.autoGate=="tsnePlot"',
-                                     '|| input.autoGate=="setup"'),
-          
-                     h3("(Optional): Upload FMO Files"),
-                     fileInput(inputId="fileSelectFMO", label="Select FCS Files", 
-                               multiple = TRUE, accept = c(".fcs", ".FCS")),
-                     h2(tags$b("Step 2: Select Parameters")),
-                     
-                     awesomeCheckboxGroup(inputId="groupCheck1", label="QC Settings:", 
-                                          choices=c("Run QC"=1, 
-                                                    "Exclude Failed QC Events from Analysis"=2,
-                                                    "Generate HTML QC Reports"=3), 
-                                          inline = FALSE, status = "primary",
-                                          selected=c(1,2)),
-                     awesomeCheckboxGroup(inputId="groupCheck2", label="Other Settings:",
-                                          choices=c("Include FMOs in Gating (in progress)"=1,  
-                                                     "GUAVA Files (also in progress)" = 2, 
-                                                    'T-Cell Panel (CCR7/CD45RA)' = 3
-                                                    ),
-                                          inline = FALSE, status = "primary"),
-                     h2(tags$b("Step 3: Upload Gating Template")),
-                     fileInput(inputId="gatingHierarchy", label="Upload Gating Template (.csv)", 
-                               multiple = FALSE, accept = c(".csv", ".CSV")),
-                     br(),
-                     actionButton(inputId="runGating",
-                                  label="Run Gating",
-                                  class='sc-button')
-    ) # END CONDITIONAL PANEL
+    h3("(Optional): Upload FMO Files"),
+    fileInput(inputId="fileSelectFMO", label="Select FCS Files", 
+              multiple = TRUE, accept = c(".fcs", ".FCS")),
+    h2(tags$b("Step 2: Select Parameters")),
+    
+    awesomeCheckboxGroup(inputId="groupCheck1", label="QC Settings:", 
+                         choices=c("Run QC"=1, 
+                                   "Exclude Failed QC Events from Analysis"=2,
+                                   "Generate HTML QC Reports"=3), 
+                         inline = FALSE, status = "primary",
+                         selected=c(1,2)),
+    awesomeCheckboxGroup(inputId="groupCheck2", label="Other Settings:",
+                         choices=c("Include FMOs in Gating (in progress)"=1,  
+                                   "GUAVA Files (also in progress)" = 2
+                         ),
+                         inline = FALSE, status = "primary"),
+    h2(tags$b("Step 3: Select a Gating Template")),
+    h3(tags$b('Choose a preset gating template')),
+    awesomeCheckboxGroup(inputId="panelType", label="Preset panels",
+                         choices=c("T-Cell Panel 1 (CCR7|CD45RA)"=1,  
+                                   "MSC Panel" = 2, 
+                                   'Luminal/Basal' = 3
+                         ),
+                         inline = FALSE, status = "primary"),
+    br(),
+    h3(tags$b('Or upload your own gating template')),
+    fileInput(inputId="gatingHierarchy", label="Upload Gating Template (.csv)", 
+              multiple = FALSE, accept = c(".csv", ".CSV")),
+    br(),
+    actionButton(inputId="runGating",
+                 label="Run Gating",
+                 class='sc-button')
     
   ),# END SIDEPANEL
   
@@ -221,7 +221,7 @@ shinyUI <- fluidPage(
                                                                  offset=0,
                                                                  selectInput('sumTabType',
                                                                              label=NULL,
-                                                                             choices=list(".html",".docx", ".pdf"),
+                                                                             choices=list(".html"), #,".docx", ".pdf"
                                                                              selected=".html",
                                                                              width='100%')),
                                                           column(width=2,
@@ -229,7 +229,7 @@ shinyUI <- fluidPage(
                                                                  selectInput('sumFile',
                                                                              label=NULL,
                                                                              choices=list('This file', 'All files'),
-                                                                             selected=".html",
+                                                                             selected="This file",
                                                                              width='100%')),
                                                           
                                                           column(width=3,
@@ -251,6 +251,7 @@ shinyUI <- fluidPage(
                         plotOutput("multiplotSummary", height = 1000),
                         br(),
                         h2('Sunburst Plot'),
+                        hr(),
                         plotOutput('sunburstSummary', height = 1000),
                         hr(),
                         br()

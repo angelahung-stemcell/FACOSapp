@@ -1,0 +1,6 @@
+alias,pop,parent,dims,gating_method,gating_args,collapseDataForGating,groupBy,preprocessing_method,preprocessing_args
+nonDebris,+,root,"SSC-A,FSC-A",flowClust,K=2,NA,,,prior_flowClust
+singlets,+,nonDebris,"SSC-A,SSC-H",singletGate,,NA,,,NA
+viable,-,singlets,Violet450,flowClust,K=2,NA,,,prior_flowClust
+lineageNeg,-,viable,Red780,flowClust,K=2,NA,,,NA
+"luminalBasal,B,C",*,lineageNeg,"Blue525,Yellow585",tmix2DGate.wrapper,K=3,NA,,,NA

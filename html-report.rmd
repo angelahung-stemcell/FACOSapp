@@ -1,0 +1,43 @@
+---
+title: "Stemcell FACS Report"
+params: 
+  QC: NA
+  popTable: NA
+  nodes: NA
+  plots: NA
+output: html_document
+---
+
+Published `r Sys.Date()`  
+
+## QC Report
+```{r, echo = FALSE}
+      cat(params$QC, sep = '\n')
+```
+
+## Population Table 
+```{r, echo = FALSE, results = 'asis'}
+      library(knitr)
+      kable(params$popTable)
+
+```
+
+## Sunburst Plot
+
+```{r, echo = FALSE}
+      library(ggplot2)
+      source("sunburst.R")
+      sunburst_static(params$popTable, params$nodes)
+      
+```
+
+
+## Gating Plots 
+```{r, echo = FALSE, message=FALSE, warning=FALSE, comment=FALSE, results = 'hide'}
+      # library(gridExtra)
+      # multiplot <- grid.arrange(grobs = params$plots)
+      # multiplot
+      params$plots
+
+```
+
