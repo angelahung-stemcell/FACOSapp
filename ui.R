@@ -137,12 +137,12 @@ shinyUI <- fluidPage(
                          inline = FALSE, status = "primary"),
     h2(tags$b("Step 3: Select a Gating Template")),
     h3(tags$b('Choose a preset gating template')),
-    awesomeCheckboxGroup(inputId="panelType", label="Preset panels",
+    awesomeRadio(inputId="panelType", label="Preset panels",
                          choices=c("T-Cell Panel 1 (CCR7|CD45RA)"=1,  
                                    "MSC Panel" = 2, 
                                    'Luminal/Basal' = 3
                          ),
-                         inline = FALSE, status = "primary"),
+                         inline = FALSE, status = "primary", checkbox = TRUE),
     br(),
     h3(tags$b('Or upload your own gating template')),
     fileInput(inputId="gatingHierarchy", label="Upload Gating Template (.csv)", 
@@ -201,8 +201,9 @@ shinyUI <- fluidPage(
                         hr()
                ),
                tabPanel(title="tSNE Plots", value="tsne",
-                        h1("tSNE Plots"), 
-                        hr()
+                        h1("tSNE Plot"), 
+                        hr(),
+                        plotOutput('tSNEplot', height = 700)
                ),
                
                tabPanel(title="Results Summary", value="resSum", 
