@@ -28,7 +28,6 @@ shinyServer <- function(input, output, session)
         idx <- match(input$fileSelector, inputFiles$name)
         dataPath <- inputFiles$datapath[idx]
         
-        # TODO: naming is weird why always V1
         f <- read.flowSet(files=dataPath, pattern="*.fcs")
         fcs$fileName <- inputFiles$name[idx]
         f
@@ -218,7 +217,7 @@ shinyServer <- function(input, output, session)
                    sb <- sunburst_static(getPopStats(fcs$gs), getNodes(fcs$gs))
                    output$downloadSunburst <- downloadHandler(
                      filename = function() {
-                       f <- gsub(".fcs", "", input$plotSelector, ignore.case=TRUE)
+                       f <- gsub(".fcs", "", fcs$fileName, ignore.case=TRUE)
                        paste0(f,"_",Sys.Date(),"_sunburstplot.pdf")
                      },
                      content = function (file) {
@@ -262,39 +261,41 @@ shinyServer <- function(input, output, session)
                    }, height = 1000)
                    
                   
-                 })# END OF withProgress
+                 
     
     output$downloadSummary <- downloadHandler (
       filename=function(){paste('STEMCELL_FACS_report_',
                                 Sys.Date(),
-                                input$sumTabType,
+                                '.html',
                                 sep='')},
       content=function(file) {
-        # if(input$sumFile == 'This file' && input$sumTabType == '.html'){
-        params <- list(QC = fcs$QC, 
+        # # if(input$sumFile == 'This file' && input$sumTabType == '.html'){
+        params <- list(QC = fcs$QC,
                        popTable = fcs$popTable,
                        nodes = getNodes(fcs$gs),
                        plots = fcs$plots)
-        
-        # withProgress({
-        rmarkdown::render('html-report.rmd', 
+        # 
+        # # withProgress({
+        rmarkdown::render('html-report.rmd',
                           output_format = 'all',
                           output_file = file,
                           params=params,
                           quiet=TRUE,
                           envir=new.env(parent = globalenv()))
-        # }, message = 'Compiling Report')   
-        # }
+        # # }, message = 'Compiling Report')   
+        # # }
+
       }
     )# END OF summaryDownload
+                 })# END OF withProgress
   })# END OF runGating
   
+
+  
   observeEvent(input$runTSNE, {
-    withProgress({
     fcs$tsne <- tSNEplot(fcs$gs, subsample = input$subsetProportion,
                          perplexity = input$tsne_perplex, 
                          iterations = input$tsne_iter)
-    }, message = 'Generating tSNE plot')
     
     output$tSNEplot <- renderPlot(fcs$tsne)
     

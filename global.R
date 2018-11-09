@@ -14,11 +14,14 @@ suppressMessages(library(shinyWidgets))
 suppressMessages(library(rmarkdown))
 suppressMessages(library(Rtsne))
 suppressMessages(library(caret))
+suppressMessages(library(shinycssloaders))
 
 
 # Sourced Files
 source("plots.R")
 source('functions.R')
+
+options(spinner.color = '#E47C23')
 
 # OpenCyto Gating Plugins 
 tmix2DGate.wrapper <- function(fr, pp_res = NULL, channels, ...){

@@ -11,12 +11,12 @@ output: html_document
 Published `r Sys.Date()`  
 
 ## QC Report
-```{r, echo = FALSE}
+```{r, echo = FALSE, message=FALSE, warning=FALSE, comment=FALSE, results = 'hide'}
       cat(params$QC, sep = '\n')
 ```
 
 ## Population Table 
-```{r, echo = FALSE, results = 'asis'}
+```{r, echo = FALSE, results = 'asis', message=FALSE, warning=FALSE, comment=FALSE, results = 'hide'}
       library(knitr)
       kable(params$popTable)
 
@@ -24,9 +24,9 @@ Published `r Sys.Date()`
 
 ## Sunburst Plot
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, message=FALSE, warning=FALSE, comment=FALSE, results = 'hide'}
       library(ggplot2)
-      source("sunburst.R")
+      source("plots.R")
       sunburst_static(params$popTable, params$nodes)
       
 ```

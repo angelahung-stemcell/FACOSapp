@@ -126,23 +126,23 @@ shinyUI <- fluidPage(
     
     awesomeCheckboxGroup(inputId="groupCheck1", label="QC Settings:", 
                          choices=c("Run QC"=1, 
-                                   "Exclude Failed QC Events from Analysis"=2,
-                                   "Generate HTML QC Reports"=3), 
+                                   "Exclude Failed QC Events from Analysis"=2), 
                          inline = FALSE, status = "primary",
                          selected=c(1,2)),
-    awesomeCheckboxGroup(inputId="groupCheck2", label="Other Settings:",
-                         choices=c("Include FMOs in Gating (in progress)"=1,  
-                                   "GUAVA Files (also in progress)" = 2
-                         ),
-                         inline = FALSE, status = "primary"),
+    # awesomeCheckboxGroup(inputId="groupCheck2", label="Other Settings:",
+    #                      choices=c("Include FMOs in Gating (in progress)"=1,  
+    #                                "GUAVA Files (also in progress)" = 2
+    #                      ),
+    #                      inline = FALSE, status = "primary"),
     h2(tags$b("Step 3: Select a Gating Template")),
-    h3(tags$b('Choose a preset gating template')),
-    awesomeRadio(inputId="panelType", label="Preset panels",
-                         choices=c("T-Cell Panel 1 (CCR7|CD45RA)"=1,  
-                                   "MSC Panel" = 2, 
-                                   'Luminal/Basal' = 3
-                         ),
-                         inline = FALSE, status = "primary", checkbox = TRUE),
+    h3(tags$b('Choose a Preset Gating template')),
+    selectInput(inputId="panelType", label="Preset panels",
+                choices=c('Select a panel' = 4, 
+                          "T-Cell Panel 1 (CCR7|CD45RA)"=1,  
+                          "MSC Panel" = 2, 
+                          'Luminal/Basal' = 3
+                ),
+                selected = NULL, multiple = FALSE),
     br(),
     h3(tags$b('Or upload your own gating template')),
     fileInput(inputId="gatingHierarchy", label="Upload Gating Template (.csv)", 
@@ -184,7 +184,8 @@ shinyUI <- fluidPage(
                                         offset=8,
                                         uiOutput("downloadPlotBttn"))),
                         hr(),
-                        plotOutput("multiplot")),
+                        withSpinner({plotOutput("multiplot")}, type = 5, color = '#E47C23')
+                        ),
                
                tabPanel(title="Population Table", value="popTable",
                         fluidRow(column(6,
@@ -237,8 +238,12 @@ shinyUI <- fluidPage(
                                  column(9,
                                         uiOutput("populationExclude"))),
                         br(), 
-                        plotOutput("tSNEplot",
-                                   height=750)),
+                        conditionalPanel(condition = 'input.runTSNE', 
+                                         withSpinner({plotOutput("tSNEplot",
+                                                    height=750)}, type = 5, color = '#E47C23'))
+                        
+                        # withSpinner(), 
+               ),
                
                tabPanel(title="Results Summary", value="resSum", 
                         fluidRow(column(width=12,
