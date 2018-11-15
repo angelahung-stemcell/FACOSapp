@@ -20,6 +20,7 @@ suppressMessages(library(shinycssloaders))
 # Sourced Files
 source("plots.R")
 source('functions.R')
+source('multireport.R')
 
 options(spinner.color = '#E47C23')
 

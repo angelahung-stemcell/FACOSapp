@@ -12,7 +12,8 @@ shinyServer <- function(input, output, session)
                         gtemp = NULL, 
                         popTable = NULL,
                         fileName = NULL, 
-                        tsne = NULL)
+                        tsne = NULL,
+                        params = NULL)
   
   observeEvent(input$fileSelectFCS, {
     output$selectPlots <- renderUI({
@@ -195,7 +196,7 @@ shinyServer <- function(input, output, session)
                    })
                    
                    incProgress(amount = 1/n, detail = 'Making tSNE Plot')
-
+                   
                    # SHINY OUTPUTS
                    output$downloadPlotBttn <- renderUI(downloadButton("downloadPlots", "Download Gating Plots"))
                    
@@ -260,37 +261,69 @@ shinyServer <- function(input, output, session)
                      sb
                    }, height = 1000)
                    
-                  
-                 
-    
-    output$downloadSummary <- downloadHandler (
-      filename=function(){paste('STEMCELL_FACS_report_',
-                                Sys.Date(),
-                                '.html',
-                                sep='')},
-      content=function(file) {
-        # # if(input$sumFile == 'This file' && input$sumTabType == '.html'){
-        params <- list(QC = fcs$QC,
-                       popTable = fcs$popTable,
-                       nodes = getNodes(fcs$gs),
-                       plots = fcs$plots)
-        # 
-        # # withProgress({
-        rmarkdown::render('html-report.rmd',
-                          output_format = 'all',
-                          output_file = file,
-                          params=params,
-                          quiet=TRUE,
-                          envir=new.env(parent = globalenv()))
-        # # }, message = 'Compiling Report')   
-        # # }
+                   output$downloadSummary <- downloadHandler (
+                     filename=function(){paste('STEMCELL_FACS_report_',
+                                               Sys.Date(),
+                                               '.html',
+                                               sep='')},
+                     content=function(file) {
+                       if(input$sumFile == 'This file' && input$sumTabType == '.html'){
+                         params <- list(QC = fcs$QC,
+                                        popTable = fcs$popTable,
+                                        nodes = getNodes(fcs$gs),
+                                        plots = fcs$plots)
+                         # 
+                         withProgress({
+                           rmarkdown::render('html-report.rmd',
+                                             output_format = 'all',
+                                             output_file = file,
+                                             params=params,
+                                             quiet=TRUE,
+                                             envir=new.env(parent = globalenv()))
+                         }, message = 'Compiling Report')
+                       } else if(input$sumFile == 'All files' && input$sumTabType == '.html'){
+                         fs <- read.ncdfFlowSet(files=input$fileSelectFCS$datapath, pattern="*.fcs")
+                         sampleNames(fs) <- input$fileSelectFCS$name
+                         fcs$params <- multireport(fs, fcs$g, input$fileSelectFCS$name)
+                        
+                         withProgress({
+                           rmarkdown::render('multireportTemplate.rmd',
+                                             output_format = 'all',
+                                             output_file = file, 
+                                             params = fcs$params,
+                                             envir = new.env(parent = globalenv()))
+                         }, message = 'Compiling Report')
+                       }
+                     }
+                   )# END OF summaryDownload
+                   
+                   output$downloaddata <- downloadHandler(
+                     filename = function() {
+                       paste('STEMCELL_FACS_raw_data',
+                             Sys.Date(),
+                             '.csv',
+                             sep='')
+                     },
+                     content = function (file) {
+                       if(input$sumFile == 'This file'){
+                         write.csv(fcs$popTable, file = file, row.names = FALSE)
+                       } else if(input$sumFile == 'All files'){
+                         if(is.null(fcs$params)){
+                           fs <- read.ncdfFlowSet(files=input$fileSelectFCS$datapath, pattern="*.fcs")
+                           sampleNames(fs) <- input$fileSelectFCS$name
+                           fcs$params <- multireport(fs, fcs$g, input$fileSelectFCS$name)
+                           write.csv(fcs$params$popTable, file = file, row.names = FALSE)
+                         } else{
+                           write.csv(fcs$params$popTable, file = file, row.names = FALSE)
+                         }
+                         
+                       }
+                       
+                     })
+                   
 
-      }
-    )# END OF summaryDownload
                  })# END OF withProgress
   })# END OF runGating
-  
-
   
   observeEvent(input$runTSNE, {
     fcs$tsne <- tSNEplot(fcs$gs, subsample = input$subsetProportion,
@@ -300,7 +333,6 @@ shinyServer <- function(input, output, session)
     output$tSNEplot <- renderPlot(fcs$tsne)
     
   })
- 
   
   observeEvent(input$gatingtempfile, {
     gtemp <- gatingTemplate(input$gatingtempfile$datapath)
@@ -308,7 +340,7 @@ shinyServer <- function(input, output, session)
     observeEvent(input$gatingTempBttn,{
       output$gttestplot <- renderPlot({
         openCyto::plot(gtemp)
-      }, height = 600, width = 1300)
+      }, height = 1200, width = 1450)
     })
   })
   

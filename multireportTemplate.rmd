@@ -1,0 +1,76 @@
+---
+title: "Stemcell FACS Report"
+params: 
+  QC: NA
+  popTable: NA
+  # nodes: NA
+  plots: NA
+  filenames: NA
+
+output: 
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+---
+
+Published `r Sys.Date()`  
+Report for `r params$filenames`
+
+## Overview (Heatmap)
+```{r, echo = FALSE, message=FALSE, warning=FALSE, comment=FALSE}
+  dtPop <- params$popTable
+  names(dtPop)[names(dtPop) == 'Percent of Parent'] <- 'Percent'
+  pheat <- dtPop[,c('File', 'Population', 'percentTotal', 'Percent')]
+  pheat2 <- lapply(1:length(nodes$Pop), function(x){
+    filter(pheat, pheat$Population == nodes$Pop[x])$Percent
+  })
+  names(pheat2) <- nodes$Pop
+  
+  pheat <- data.frame(pheat2)
+  colnames(pheat) <- nodes$Pop
+  pheatmat <- data.matrix(pheat)
+  
+  rownames(pheatmat) <- params$filenames
+  pheatmat <- t(pheatmat)
+  pheatmap::pheatmap(pheatmat)
+
+  figlength <- length(params$plots)*15
+
+```
+
+## QC Report
+```{r, echo = FALSE, message=FALSE, warning=FALSE, comment=FALSE, results = 'asis'}
+            # for(i in 1:length(params$QC)){
+            #   cat(params$QC[[i]], sep = '\n')
+            #   cat('\n')
+            # }
+
+            library(knitr)
+            kable(params$QC)
+
+```
+
+## Population Table
+```{r, echo = FALSE, results = 'asis', message=FALSE, warning=FALSE, comment=FALSE}
+      library(knitr)
+      kable(params$popTable)
+
+```
+
+<!-- ## Sunburst Plot -->
+
+<!-- ```{r, echo = FALSE, message=FALSE, warning=FALSE, comment=FALSE, results = 'hide'} -->
+<!--       library(ggplot2) -->
+<!--       source("plots.R") -->
+<!--       sunburst_static(params$popTable, params$nodes) -->
+
+<!-- ``` -->
+
+
+## Gating Plots
+```{r, figures, fig.align = 'center', fig.width=12, fig.height=figlength, message=FALSE, warning=FALSE,                                         comment=FALSE, results = 'hide',echo = FALSE}
+
+      grid.arrange(grobs=params$plots, ncol = 1, padding = 4)
+```

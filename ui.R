@@ -173,8 +173,7 @@ shinyUI <- fluidPage(
                         ),
                         hr(),
                         plotOutput('gttestplot'),
-                        hr(), 
-                        uiOutput('hideNodes')
+                        hr()
                ),
                
                tabPanel(title="Gate Plots", value="gatePlots",
@@ -184,7 +183,9 @@ shinyUI <- fluidPage(
                                         offset=8,
                                         uiOutput("downloadPlotBttn"))),
                         hr(),
-                        withSpinner({plotOutput("multiplot")}, type = 5, color = '#E47C23')
+                        conditionalPanel(condition = 'input.runGating', 
+                                         withSpinner({plotOutput("multiplot",
+                                                                 height=750)}, type = 6, color = '#E47C23'))
                         ),
                
                tabPanel(title="Population Table", value="popTable",
@@ -240,15 +241,13 @@ shinyUI <- fluidPage(
                         br(), 
                         conditionalPanel(condition = 'input.runTSNE', 
                                          withSpinner({plotOutput("tSNEplot",
-                                                    height=750)}, type = 5, color = '#E47C23'))
-                        
-                        # withSpinner(), 
+                                                    height=750)}, type = 6, color = '#E47C23'))
                ),
                
                tabPanel(title="Results Summary", value="resSum", 
                         fluidRow(column(width=12,
                                         tags$div(id="sumDwnld",
-                                                 fluidRow(column(width=5,
+                                                 fluidRow(column(width=2,
                                                                  textInput("sumTabName",
                                                                            label=NULL,
                                                                            value=paste('STEMCELL_FACS_report_',
@@ -257,25 +256,32 @@ shinyUI <- fluidPage(
                                                                  offset=0,
                                                                  tags$style(type="text/css", 
                                                                             "#tabName { text-align:right; font-size: 10px;}")),
+                                                          
+                                                          column(width=2,
+                                                                 offset=0.5,
+                                                                 selectInput('sumFile',
+                                                                             label=NULL,
+                                                                             choices=list('This file', 'All files'),
+                                                                             selected="This file",
+                                                                             width='100%')),
                                                           column(width=2,
                                                                  offset=0,
                                                                  selectInput('sumTabType',
                                                                              label=NULL,
                                                                              choices=list(".html"), #,".docx", ".pdf"
                                                                              selected=".html",
-                                                                             width='100%')),
-                                                          column(width=2,
-                                                                 offset=0,
-                                                                 selectInput('sumFile',
-                                                                             label=NULL,
-                                                                             choices=list('This file', 'All files'),
-                                                                             selected="This file",
-                                                                             width='100%')),
-                                                          
+                                                                             width='60%')),
+                                                        
                                                           column(width=3,
                                                                  offset = 0, 
                                                                  downloadButton("downloadSummary",
                                                                                 "Download Summary Report"
+                                                                 )), 
+                                                          
+                                                          column(width=3,
+                                                                 offset = 0, 
+                                                                 downloadButton("downloaddata",
+                                                                                "Download Raw Data as .csv"
                                                                  )))))), #yikes
                         br(),
                         h2('QC Report'), 

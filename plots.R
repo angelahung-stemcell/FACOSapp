@@ -170,7 +170,7 @@ tSNEplot <- function(gt, subsample, perplexity, iterations){
   exp <- exp[unlist(indx),]
   
   #TODO: not population
-  tsne <-Rtsne(as.matrix(select(exp, -'Population')), 
+  tsne <-Rtsne(as.matrix(select(exp, !contains('Population'))), 
                max_iter = iterations, 
                verbose = TRUE, 
                perplexity = perplexity)$Y
