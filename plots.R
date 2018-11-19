@@ -148,7 +148,7 @@ sunburst_static <- function(popStats, nodes){
 }
 
 tSNEplot <- function(gt, subsample, perplexity, iterations){
-  nodes <- getNodes(gt)[2:length(nodes)]
+  nodes <- getNodes(gt)[2:length(getNodes(gt))]
 
   pops <- lapply(1:length(nodes), function(x){
     flowWorkspace::getIndices(gt[[1]], nodes[x])
@@ -170,7 +170,7 @@ tSNEplot <- function(gt, subsample, perplexity, iterations){
   exp <- exp[unlist(indx),]
   
   #TODO: not population
-  tsne <-Rtsne(as.matrix(select(exp, !contains('Population'))), 
+  tsne <-Rtsne(as.matrix(exp[, !'Population']), 
                max_iter = iterations, 
                verbose = TRUE, 
                perplexity = perplexity)$Y

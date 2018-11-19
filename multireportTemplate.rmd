@@ -2,7 +2,7 @@
 title: "Stemcell FACS Report"
 params: 
   QC: NA
-  popTable: NA
+  # popTable: NA
   # nodes: NA
   plots: NA
   filenames: NA
@@ -18,27 +18,7 @@ output:
 Published `r Sys.Date()`  
 Report for `r params$filenames`
 
-## Overview (Heatmap)
-```{r, echo = FALSE, message=FALSE, warning=FALSE, comment=FALSE}
-  dtPop <- params$popTable
-  names(dtPop)[names(dtPop) == 'Percent of Parent'] <- 'Percent'
-  pheat <- dtPop[,c('File', 'Population', 'percentTotal', 'Percent')]
-  pheat2 <- lapply(1:length(nodes$Pop), function(x){
-    filter(pheat, pheat$Population == nodes$Pop[x])$Percent
-  })
-  names(pheat2) <- nodes$Pop
-  
-  pheat <- data.frame(pheat2)
-  colnames(pheat) <- nodes$Pop
-  pheatmat <- data.matrix(pheat)
-  
-  rownames(pheatmat) <- params$filenames
-  pheatmat <- t(pheatmat)
-  pheatmap::pheatmap(pheatmat)
-
-  figlength <- length(params$plots)*15
-
-```
+## Overview (Grouped bar)
 
 ## QC Report
 ```{r, echo = FALSE, message=FALSE, warning=FALSE, comment=FALSE, results = 'asis'}
@@ -49,13 +29,8 @@ Report for `r params$filenames`
 
             library(knitr)
             kable(params$QC)
-
-```
-
-## Population Table
-```{r, echo = FALSE, results = 'asis', message=FALSE, warning=FALSE, comment=FALSE}
-      library(knitr)
-      kable(params$popTable)
+            
+            figlength <- length(params$plots)*(ceiling(length(params$filenames)/3)*6)
 
 ```
 

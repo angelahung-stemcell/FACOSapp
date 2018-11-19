@@ -195,6 +195,7 @@ shinyServer <- function(input, output, session)
                      return(e)
                    })
                    
+                   # TODO: why is this here
                    incProgress(amount = 1/n, detail = 'Making tSNE Plot')
                    
                    # SHINY OUTPUTS
@@ -319,14 +320,15 @@ shinyServer <- function(input, output, session)
                          
                        }
                        
-                     })
+                     }) # End of download data
                    
 
                  })# END OF withProgress
   })# END OF runGating
   
   observeEvent(input$runTSNE, {
-    fcs$tsne <- tSNEplot(fcs$gs, subsample = input$subsetProportion,
+    fcs$tsne <- tSNEplot(fcs$gs, 
+                         subsample = input$subsetProportion,
                          perplexity = input$tsne_perplex, 
                          iterations = input$tsne_iter)
     
