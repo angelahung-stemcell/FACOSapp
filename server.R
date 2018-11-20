@@ -3,11 +3,13 @@ shinyServer <- function(input, output, session)
   # Increase the maximum input file size to 100MB to accomodate GUAVA FCS files
   options(shiny.maxRequestSize=100*1024^2)
   
-  fcs <- reactiveValues(ff = NULL, 
+  fcs <<- reactiveValues(ff = NULL, 
+                        fmos = NULL, 
                         QC = NULL, 
                         gs = NULL, 
                         g = NULL, 
-                        gtable = NULL, 
+                        gtable = NULL,
+                        gfmo = NULL, 
                         plots = NULL, 
                         gtemp = NULL, 
                         popTable = NULL,
@@ -39,6 +41,31 @@ shinyServer <- function(input, output, session)
     })
   })# END OF fileSelect
   
+  observeEvent(input$fileSelectFMO, {
+    fcs$fmos <- tryCatch({
+      f <- read.flowSet(files = input$fileSelectFMO$datapath, pattern = '*.fcs')
+      print(typeof(f))
+      f
+    }, error = function(e){
+      print('Failed to read in FMOs')
+      return(e)
+    })
+    sampleNames(fcs$fmos) <- input$fileSelectFMO$name
+    print(sampleNames(fcs$fmos))
+    print(typeof(fcs$fmos))
+  })
+  
+  # User uploaded gating template
+  observeEvent(input$gatingHierarchy, {
+    tryCatch({
+      fcs$g <- gatingTemplate(input$gatingHierarchy$datapath)
+      fcs$gtable <- fread(input$gatingHierarchy$datapath)
+    }, error = function(e){
+      print('Failed to make gating template')
+      return(e)
+    })
+  })
+  
   observeEvent(input$runGating, {
     withProgress(message = 'Gating Data...',
                  value = 0, 
@@ -46,6 +73,34 @@ shinyServer <- function(input, output, session)
                    # Number of events for withProgress incrementation
                    n <- 10
                    sampleNames(fcs$ff) <- fcs$fileName
+                   
+                   # if(!is.null(fcs$fmos)){
+                   #   gtb <- fcs$gtable
+                   #   ix <- which(gtb$gating_method == 'myGate')
+                   #   gtb$gating_method[ix] <- 'quantileGate'
+                   #   gtb$gating_args[ix] <- 'probs=0.99'
+                   #   gtb[ix, c('collapseDataForGating', 'groupBy', 'preprocessing_method', 'preprocessing_args')] <- NA
+                   #   write.csv(gtb, 'fmo.csv')
+                   #   fcs$gfmo <- gatingTemplate('fmo.csv')
+                   #   
+                   #   plot(fcs$gfmo)
+                   #   # print(sampleNames(fcs$fmos))
+                   #   # print(typeof(fcs$fmos))
+                   #   # print(length(fcs$fmos))
+                   #   names <- sampleNames(fcs$fmos)
+                   #  
+                   #   #gatingsetlist
+                   #   fcs$fmos <- lapply(1:length(fcs$fmos), function(x){
+                   #    # print(typeof(fcs$fmos[x]))
+                   #    # print(sampleNames(fcs$fmos[x]))
+                   #     c <- fmocleaning(fcs$fmos[x], names[x], fcs$gfmo)
+                   #    c
+                   #   })
+                   #  print('done fmo cleaning')
+                   #  print(length(fcs$fmos))
+                   #  
+                   #  d<<- fcs$fmos
+                   # }
                    
                    if('1' %in% input$groupCheck1 & '2' %in% input$groupCheck1){
                      incProgress(amount = 1/n, detail = 'Running QC')
@@ -113,55 +168,20 @@ shinyServer <- function(input, output, session)
                      })
                    }
                    
-                   # User uploaded gating template
-                   observeEvent(input$gatingHierarchy, {
-                     tryCatch({
-                       fcs$g <- gatingTemplate(input$gatingHierarchy$datapath)
-                       fcs$gtable <- fread(input$gatingHierarchy$datapath)
-                     }, error = function(e){
-                       print('Failed to make gating template')
-                       return(e)
-                     })
-                   })
+                 
                    
                    # Compensation
                    incProgress(amount = 1/n, detail = 'Applying Compensation')
                    fcs$ff <- apply_comp_existing(fcs$ff)
                    
+                   # Renaming markers, transforming and gating data
                    incProgress(amount = 1/n, detail = 'Making Gating Set')
-                   fcs$gs <- tryCatch({
-                     gs <- GatingSet(fcs$ff)
-                     gs <- renameMarkers(gs)
-                     gs
-                   }, error = function(e){
-                     print('Failed to make a gatingSet')
-                     return(e)
-                   })
-                   
-                   #Transformation
-                   incProgress(amount = 1/n, detail = 'Applying Logicle Transformation')
-                   #Default m = 5.3 because 4.5 seems to mess up data
-                   chnls <- colnames(fcs$gs[[1]])[!colnames(fcs$gs[[1]]) %in% c("Time", "FSC-Width")]
-                   trans <- NULL
-                   m <- 5.3
-                   catch <- TRUE
-                   
-                   while(catch){
-                     tryCatch({
-                       trans <- estimateLogicle(fcs$gs[[1]], chnls, m = m)
-                       fcs$gs <- transform(fcs$gs, trans)
-                       
-                       tryCatch({
-                         incProgress(amount = 1/n, detail = 'Applying Gating Template')
-                         gating(fcs$g, fcs$gs)
-                       }, error = function(e){
-                         print('Failed to gate on gating template')
-                       })
-                       catch = FALSE
-                     }, error = function(err){
-                       m <<- m + 0.1
-                     })
-                   }
+                   print('markers')
+                   fcs$ff <- renameMarkers(fcs$ff)
+                   print('transformgating')
+                   fcs$gs <- transformGating(fcs$ff, fcs$g)
+                   gating(fcs$g, fcs$gs)
+                   sampleNames(fcs$gs) <- fcs$fileName
                    
                    if('1' %in% input$panelType){
                      # TCELLPANEL
@@ -175,6 +195,7 @@ shinyServer <- function(input, output, session)
                                     'CD4-CD8a+/CCR7+',
                                     'CD4-CD8a+/CD45RA+')
                      lapply(hideNodes, function(thisNode)setNode(fcs$gs, thisNode, FALSE))
+                     tcell <<- TRUE
                    }
                    
                    incProgress(amount = 1/n, detail = 'Plotting Gates')
@@ -194,9 +215,6 @@ shinyServer <- function(input, output, session)
                      print('Failed to make gating plots')
                      return(e)
                    })
-                   
-                   # TODO: why is this here
-                   incProgress(amount = 1/n, detail = 'Making tSNE Plot')
                    
                    # SHINY OUTPUTS
                    output$downloadPlotBttn <- renderUI(downloadButton("downloadPlots", "Download Gating Plots"))
@@ -285,8 +303,8 @@ shinyServer <- function(input, output, session)
                        } else if(input$sumFile == 'All files' && input$sumTabType == '.html'){
                          fs <- read.ncdfFlowSet(files=input$fileSelectFCS$datapath, pattern="*.fcs")
                          sampleNames(fs) <- input$fileSelectFCS$name
-                         fcs$params <- multireport(fs, fcs$g, input$fileSelectFCS$name)
-                        
+                         fcs$params <- multireport(fs, fcs$g, input$fileSelectFCS$name, tcell)
+                         
                          withProgress({
                            rmarkdown::render('multireportTemplate.rmd',
                                              output_format = 'all',
@@ -317,12 +335,8 @@ shinyServer <- function(input, output, session)
                          } else{
                            write.csv(fcs$params$popTable, file = file, row.names = FALSE)
                          }
-                         
                        }
-                       
-                     }) # End of download data
-                   
-
+                     }) # END OF downloaddata
                  })# END OF withProgress
   })# END OF runGating
   

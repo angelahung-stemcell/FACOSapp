@@ -1,18 +1,5 @@
-library(openCyto)
-library(data.table)
-library(ggcyto)
-library(ggplot2)
-library(flowAI)
-library(D3partitionR)
-library(magrittr)
-library(RColorBrewer)
-library(gridExtra)
-library(ggrepel)
-library(dplyr)
-library(stringr)
-
-
 source("plots.R")
+source('functions.R')
 
 #Plugins ----
 tmix2DGate.wrapper <- function(fr, pp_res = NULL, channels, ...){
@@ -21,7 +8,8 @@ tmix2DGate.wrapper <- function(fr, pp_res = NULL, channels, ...){
 registerPlugins(tmix2DGate.wrapper, "tmix2DGate.wrapper")
 #----
 
-multireport <- function(fs, g, filenames){
+multireport <- function(fs, g, filenames, tcell = FALSE){
+  print(tcell)
   withProgress(message = 'Generating Report...', 
                value = 0,{
                  n <- 7
@@ -44,56 +32,19 @@ multireport <- function(fs, g, filenames){
                  
                  incProgress(amount = 1/n, detail = 'Applying Compensation')
                  # Compensation 
-                 # Input: - fcsSet: flowSet of samples
-                 # Output: flowSet of samples that have been compensated on "channels"
-                 apply_comp_existing <- function(fcsSet) {
-                   # iterate through flowSet and apply compensation matrix stored with flowFrame
-                   fcsSet.comp <- fsApply(fcsSet, function(ff) {
-                     print(identifier(ff))
-                     spill.search <- try(spillover(ff))
-                     # Get rid of any NULL entries in list of spillover keyword search results
-                     spill.mat <- try(spill.search[sapply(spill.search, function(x) !is.null(x))])
-                     # Grab the spillover matrix from the list
-                     spill.mat <- try(get(names(spill.mat)[1], spill.mat))
-                     comp <- tryCatch(compensate(ff, spill.mat),
-                                      error = function(e) {
-                                        print (e)
-                                        print (paste0("compensation failed for: ", identifier(ff)))
-                                        return (ff)
-                                      })
-                     return (comp)
-                   })
-                 }
                  fs <- apply_comp_existing(fs)
                  
                  incProgress(amount = 1/n, detail = 'Setting marker names')
                  #Setting marker names to dye names instead of FL1-etc. 
-                 # newMarkers <- unname(gs[[1]]@data[[1]]@parameters$desc)
-                 newMarkers <- unname(fs[[1]]@parameters$desc)
-                 #For naming inconsistencies
-                 newMarkers <- gsub("CD8\\s", "CD8a ", newMarkers)
-                 cols <- colnames(fs)
-                 
-                 #Keeping only '-A' markers and leaving '-H' markers as FL-etc 
-                 #ONLY FOR CYTOFLEX - FOR GUAVA -HLIN VS -HLOG
-                 for(i in 1:length(cols)){
-                   if(grepl('-H', newMarkers[[i]])){
-                     newMarkers[[i]] <-  cols[[i]]
-                   }
-                 }
-                 #Renaming markers and columns 
-                 newMarkers <- gsub("\\[\\d+\\]", "", newMarkers)
-                 colnames(fs) <- c(newMarkers)
-                 names(newMarkers) <- newMarkers
-                 markernames(fs) <- newMarkers
+                 fs <- renameMarkers(fs)
                  
                  #Transformation
-                 #Default m = 5.3 because 4.5 seems to mess up data 
+                 incProgress(amount = 1/n, detail = 'Applying logicle transformation')
+                 
                  chnls <- colnames(fs[[1]])[!colnames(fs[[1]]) %in% c("Time", "FSC-Width")]
                  trans <- NULL
                  m <- 5.3
                  
-                 incProgress(amount = 1/n, detail = 'Applying logicle transformation')
                  fstrans <- fsApply(fs, function(ff){
                    catch <- TRUE 
                    while(catch){
@@ -108,6 +59,9 @@ multireport <- function(fs, g, filenames){
                    }
                    fftrans
                  })
+                 
+                 gs <- GatingSet(fstrans)
+                 gating(g,gs)
                  
                  incProgress(amount = 1/n, detail = 'Gating data')
                  gs <- GatingSet(fstrans)
@@ -126,43 +80,10 @@ multireport <- function(fs, g, filenames){
                                   'CD4-CD8a+/CD45RA+')
                    lapply(hideNodes, function(thisNode)setNode(gs, thisNode, FALSE))
                  }
-                 
+
                  incProgress(amount = 1/n, detail = 'Generating plots')
-                 nodes <- data.table(hierarchy = getNodes(gs)[2:length(getNodes(gs))])
-                 nodes$Parent <- getPopStats(gs)[1:length(nodes$hierarchy)]$Parent
-                 nodes$Pop <- getPopStats(gs)[1:length(nodes$hierarchy)]$Population
-                 test <- unique(nodes$Parent)
                  
-                 gatePlots <- lapply(1:length(test), function(y){
-                   node <- nodes[y]
-                   
-                   plots <- lapply(1:length(gs), function(x){
-                     gates <- nodes[nodes$Parent == test[y],]$hierarchy
-                     pop <- nodes[nodes$Parent == test[y],]$Pop
-                     pop <<- gsub('\\+|-', '', pop)
-                     gate <- getGate(gs[[1]],gates[1])
-                     dims <- gate@parameters
-                     
-                     if(length(dims) == 1){
-                       xdim <<- 'FSC-A'
-                       ydim <<- dims[[1]]@parameters
-                       as.ggplot(ggcyto(gs[[x]], aes_(x = xdim, y = ydim)) + geom_hex(bins = 200) + geom_gate(gates) + geom_stats() + 
-                                   facet_grid(cols=vars(eval(identifier(getFlowFrame(gs[[x]]))))) + 
-                                   ggtitle('') +xlab('') + ylab('')
-                       )
-                     } else if (length(dims) == 2){
-                       xdim <<- dims[[1]]@parameters
-                       ydim <<- dims[[2]]@parameters
-                       print(xdim)
-                       as.ggplot(ggcyto(gs[[x]], aes_(x = xdim, y = ydim)) + geom_hex(bins = 200) + geom_gate(gates) + geom_stats() + 
-                                   facet_grid(cols=vars(eval(identifier(getFlowFrame(gs[[x]]))))) + 
-                                   ggtitle('') +xlab('') + ylab('')
-                       )
-                     }
-                   })
-                   
-                   arrangeGrob(grobs = plots, ncol = 3, left = ydim, bottom = xdim, top = pop)
-                 })
+                 gatePlots <- plots(gs)
                  
                  incProgress(amount = 1/n, detail = 'Prepping report')
                  # QC REPORT

@@ -184,4 +184,105 @@ tSNEplot <- function(gt, subsample, perplexity, iterations){
   return(tsne_plot)
 }
 
+# plots <- function(gs){
+#   nodes <- data.table(hierarchy = getNodes(gs)[2:length(getNodes(gs))])
+#   nodes$Parent <- getPopStats(gs)[1:length(nodes$hierarchy)]$Parent
+#   nodes$Pop <- getPopStats(gs)[1:length(nodes$hierarchy)]$Population
+#   test <- unique(nodes$Parent)
+#   nodes
+#   test
+#   gatePlots <- lapply(1:length(test), function(y){
+#     node <- nodes[y]
+#     node
+#     
+#     plots <- lapply(1:length(gs), function(x){
+#       gates <- nodes[nodes$Parent == test[y],]$hierarchy
+#       gates
+#       pop <- nodes[nodes$Parent == test[y],]$Pop
+#       pop <<-  gsub('.*/', 
+#                     paste(node$Parent, '/', sep = ''), 
+#                     gsub('\\+|-', '', pop)) 
+#       gate <- getGate(gs[[1]],gates[1])
+#       dims <- gate@parameters
+#       
+#       if(length(dims) == 1){
+#         xdim <<- 'FSC-A'
+#         ydim <<- dims[[1]]@parameters
+#         as.ggplot(ggcyto(gs[[x]], aes_(x = xdim, y = ydim)) + geom_hex(bins = 200) + geom_gate(gates) + geom_stats() + 
+#                     facet_grid(cols=vars(eval(identifier(getFlowFrame(gs[[x]]))))) + 
+#                     ggtitle('') +xlab('') + ylab('')
+#         )
+#       } else if (length(dims) == 2){
+#         xdim <<- dims[[1]]@parameters
+#         ydim <<- dims[[2]]@parameters
+#         print(xdim)
+#         as.ggplot(ggcyto(gs[[x]], aes_(x = xdim, y = ydim)) + geom_hex(bins = 200) + geom_gate(gates) + geom_stats() + 
+#                     facet_grid(cols=vars(eval(identifier(getFlowFrame(gs[[x]]))))) + 
+#                     ggtitle('') +xlab('') + ylab('')
+#         )
+#       }
+#     })
+#     
+#     plots
+#     
+#     ifelse(length(plots)< 3, numcol <- length(plots), numcol <- 3 )
+#     arrangeGrob(grobs = plots, ncol = numcol, left = ydim, bottom = xdim, top = pop)
+#   })
+#   return(gatePlots)
+# }
+# 
 
+
+make_plot <- function(gt, x, y, gates){
+  p <-  tryCatch({
+    # Title (ugly but allows CCR7/CD45RA to have parent behind it)
+    parts <- unlist(strsplit(gates[1], '/'))
+    l <- length(parts)
+    title <- paste(parts[l-1], '/',gsub('(\\+|-)', ' ', parts[l]))
+    # Make ggcyto plots
+    ggcyto(gt[[1]], aes_(x = x, y = y)) + geom_hex(bins = 200) +
+      geom_gate(gates) + geom_stats(size = 4, adjust = 0.90, negated = TRUE) +
+      xlab(x) + ylab(y) + ggtitle('') + facet_grid(cols=vars(eval(title)))
+  }, error = function(e){
+    print(e)
+    return(e)
+  })
+  return(as.ggplot(p))
+}
+
+
+plots <- function(plotdata, gt, nodes){
+  plots <- tryCatch({
+    lapply(1:length(plotdata$alias), function(x){
+      if(!grepl(',', plotdata$dims[x])){
+        # For mindensity when plotted against default.y (FSC-A) // ex. 7AAD
+        make_plot(gt, x = 'FSC-A', y = plotdata$dims[x][[1]], gates = plotdata$alias[x])
+      }else {
+        # Plotting against 2 channels
+        # Splitting dims based on ',' delimiter
+        d <- plotdata$dims[x]
+        chnls <- unlist(strsplit(d, ','))
+
+        if(plotdata$alias[x] == '*'){
+          # For expanded populations
+          parentname <- gsub('+','(\\+)', plotdata$parent[x],fixed = TRUE) #Make parent name regex friendly
+
+          gatereg <- paste(parentname,'/',chnls[[1]], '(\\+|-)', chnls[[2]], '(\\+|-)$', sep = '') #Regex exp. to find all gates
+
+          gates <- grep(gatereg, nodes, value = TRUE) #Find gates through gt nodes
+
+          make_plot(gt, x = chnls[[1]], y = chnls[[2]], gates = gates)
+        }else if(grepl(',', plotdata$alias[x])){
+          gates <- unlist(strsplit(plotdata$alias[x], ','))
+          make_plot(gt, x = chnls[[1]], y = chnls[[2]], gates = gates)
+        }else{
+          # Simple graphs/ normally the first 3
+          make_plot(gt, x = chnls[[1]], y = chnls[[2]], gates = plotdata$alias[x])
+        }
+      }
+    })
+  }, error = function(e){
+    print(e)
+    return(e)
+  })
+}
